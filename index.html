@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#491f3e">
+<title>Bakery Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+:root{--p1:#6a2c58;--p2:#8e4585;--p3:#491f3e;--bg:#f9f5f8;--ink:#1c1018}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:92px;font-size:16px}
+.hdr{position:sticky;top:0;z-index:30;background:linear-gradient(135deg,var(--p3),var(--p1));color:#fff;padding:10px 14px}
+.brand{font-weight:800;font-size:1.2rem}
+.saved{font-size:.75rem;opacity:.85}
+.wrap{max-width:720px;margin:0 auto;padding:0 12px}
+.card{background:#fff;border:1px solid #e8d9e4;border-radius:16px;padding:14px;margin:12px 0;box-shadow:0 1px 3px rgba(73,31,62,.08)}
+.card h2{color:var(--p1);font-weight:800;font-size:1.1rem;margin-bottom:6px}
+.lbl{display:block;font-size:.8rem;font-weight:700;color:var(--p3);margin-bottom:4px}
+.lbl small{font-weight:500;color:#6b5a66}
+.hint{font-size:.8rem;color:#5d4a57}
+.mt{margin-top:12px}
+.inp{width:100%;min-height:50px;border:2px solid #d9c3d3;border-radius:12px;padding:8px 12px;font-size:1.1rem;background:#fff;color:var(--ink);font-family:inherit}
+.inp:focus{outline:none;border-color:var(--p2);box-shadow:0 0 0 3px rgba(142,69,133,.25)}
+textarea.inp{min-height:76px;font-size:1rem}
+.datein{width:auto;min-height:42px;font-size:.95rem}
+.g4{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:480px){.g4{grid-template-columns:repeat(4,1fr)}}
+.cell span{display:block;font-size:.75rem;font-weight:700;color:var(--p3);margin-bottom:2px}
+.cell b{display:flex;align-items:center;justify-content:center;min-height:50px;border-radius:12px;background:#f3e8ef;color:var(--p3);font-size:1.25rem}
+.tot{text-align:right;font-size:.85rem;color:#5d4a57;margin-top:4px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px dashed #e3d0dd}
+.row b{font-size:1.05rem;color:var(--p3)}
+.row.big{background:#f3e8ef;border-radius:12px;border:0;padding:12px;margin-top:8px}
+.row.big b{font-size:1.3rem;color:var(--p1)}
+.neg{color:#b00020!important}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:54px;border-radius:14px;font-weight:800;font-size:1rem;padding:0 16px;background:var(--p1);color:#fff;border:2px solid var(--p1);margin-top:10px}
+.btn:active{transform:scale(.98)}
+.btn.alt{background:#fff;color:var(--p1)}
+.btn.green{background:#1f6b3a;border-color:#1f6b3a}
+.btn.red{background:#fff;color:#a11;border-color:#a11}
+.sm{min-height:42px;padding:0 12px;border-radius:10px;background:#fff;color:var(--p1);border:2px solid var(--p1);font-weight:700;font-size:.85rem}
+.sm.red{color:#a11;border-color:#a11}
+.xbtn{min-width:50px;min-height:50px;margin-top:18px;border-radius:12px;background:#fbe9ee;color:#a11;font-weight:800;font-size:1.1rem}
+.dcard{border-left:6px solid var(--p2)}
+.warn{background:#fff1d6;border:2px solid #e0a100;color:#5a3d00;border-radius:12px;padding:10px 12px;margin:12px 0;font-weight:600}
+.chip{display:inline-block;margin:4px 6px 0 0;padding:8px 14px;border-radius:999px;background:#f3e8ef;color:var(--p1);font-weight:700;border:1px solid #d9c3d3}
+.hrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px dashed #e3d0dd;flex-wrap:wrap}
+details summary{font-weight:800;color:var(--p1);cursor:pointer;min-height:36px}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border-top:2px solid #e3d0dd;padding-bottom:env(safe-area-inset-bottom,0)}
+.nb{min-height:68px;font-size:.72rem;font-weight:700;color:#7a6574;background:#fff}
+.nb i{display:block;font-style:normal;font-size:1.35rem}
+.nb.on{color:#fff;background:var(--p1)}
+.hidden{display:none}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:var(--p3);color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;z-index:60;opacity:0;pointer-events:none;transition:.25s;max-width:90%;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+pre.rep{white-space:pre-wrap;word-break:break-word;background:#fdfafc;border:2px solid #e3d0dd;border-radius:12px;padding:12px;font-size:.88rem;max-height:420px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="flex items-center justify-between gap-2">
+    <div><div class="brand">🍞 Bakery Ledger</div><div id="saved" class="saved">Saved ✓</div></div>
+    <input type="date" class="inp datein" data-bind="date" aria-label="Report date">
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- TAB 1: PRODUCTION -->
+  <section id="tab0" class="tab"></section>
+
+  <!-- TAB 2: DISTRIBUTORS -->
+  <section id="tab1" class="tab hidden">
+    <div class="card">
+      <h2>📦 Distributors</h2>
+      <p class="hint">Add each distributor who took bread today. Tap a saved name to add quickly.</p>
+      <div id="chips"></div>
+      <button class="btn" data-act="addDist">＋ Add Distributor</button>
+    </div>
+    <datalist id="names"></datalist>
+    <div id="distList"></div>
+    <div class="card">
+      <h2>All Distributors Today</h2>
+      <div class="row"><span>Bread taken</span><b data-o="t.sold">0</b></div>
+      <div class="row"><span>Total value</span><b data-o="revenue" data-m="1">₦0</b></div>
+      <div class="row big"><span>Total outstanding debt</span><b data-o="debtTotal" data-m="1">₦0</b></div>
+      <button class="btn alt" data-act="addDist">＋ Add Distributor</button>
+    </div>
+  </section>
+
+  <!-- TAB 3: RECONCILIATION & WHATSAPP -->
+  <section id="tab2" class="tab hidden">
+    <div class="card">
+      <h2>💰 Cash & Transfer Summary</h2>
+      <div class="row"><span>Total Cash Dropped</span><b data-o="cash" data-m="1">₦0</b></div>
+      <div class="row"><span>Total Bank Transfers</span><b data-o="transfer" data-m="1">₦0</b></div>
+      <div class="row"><span>Today's Sales Collections</span><b data-o="salesColl" data-m="1">₦0</b></div>
+      <div class="row"><span>Old Debt Collections</span><b data-o="oldPaid" data-m="1">₦0</b></div>
+      <div class="row big"><span>Grand Total Collections</span><b data-o="grand" data-m="1">₦0</b></div>
+      <p class="hint mt">Grand total = cash + transfers for today's sales + old debts collected.</p>
+      <label class="lbl mt">Cash drop details <small>(optional, shown in the report)</small></label>
+      <textarea class="inp" data-bind="cashNotes" placeholder="e.g. Sir K 13,600, Rukky 7,200"></textarea>
+    </div>
+    <div class="card">
+      <h2>📲 WhatsApp Report</h2>
+      <pre class="rep" id="report"></pre>
+      <button class="btn green" data-act="waCopy">📲 Copy &amp; Open WhatsApp</button>
+      <button class="btn alt" data-act="copyOnly">📋 Copy Report Only</button>
+    </div>
+    <div class="card">
+      <h2>🌙 End of Day</h2>
+      <p class="hint">Saves today into History, moves today's leftover bread to tomorrow, and carries forward unpaid debts.</p>
+      <button class="btn" data-act="close">✅ Close Day &amp; Start Next Day</button>
+    </div>
+  </section>
+
+  <!-- TAB 4: HISTORY & PDFS -->
+  <section id="tab3" class="tab hidden">
+    <div class="card">
+      <h2>📄 PDF Reports</h2>
+      <button class="btn" data-act="pdfToday">⬇️ Download Today's Report (PDF)</button>
+      <button class="btn alt" data-act="pdfAll">⬇️ Download Full History Archive (PDF)</button>
+    </div>
+    <div class="card">
+      <h2>💾 Backup &amp; Restore</h2>
+      <button class="btn" data-act="backup">📱 Backup App Data to Phone</button>
+      <button class="btn alt" data-act="restore">📂 Restore Data from File</button>
+      <input type="file" id="file" accept=".json,application/json" class="hidden">
+    </div>
+    <div id="histBox"></div>
+    <div class="card">
+      <button class="btn" data-act="close">✅ Close Day &amp; Start Next Day</button>
+    </div>
+  </section>
+</main>
+
+<nav class="nav">
+  <button class="nb" data-act="tab" data-i="0"><i>🍞</i>Production</button>
+  <button class="nb" data-act="tab" data-i="1"><i>📦</i>Distributors</button>
+  <button class="nb" data-act="tab" data-i="2"><i>💰</i>Cash &amp; Send</button>
+  <button class="nb" data-act="tab" data-i="3"><i>🗂️</i>History</button>
+</nav>
+<div id="toast"></div>
+
+<script>
+/* ============ HELPERS ============ */
+const KEY='bakeryLedger.v1';
+const SIZES=['small','medium','large','jumbo'];
+const LABEL={small:'Small',medium:'Medium',large:'Large',jumbo:'Jumbo'};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const n=v=>{const x=parseFloat(v);return isFinite(x)?x:0};
+const money=v=>(v<0?'-':'')+'₦'+Math.abs(v).toLocaleString('en-NG',{maximumFractionDigits:2});
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const get=(o,p)=>p.split('.').reduce((a,k)=>a==null?a:a[k],o);
+const set=(o,p,v)=>{const k=p.split('.');const last=k.pop();const t=k.reduce((a,x)=>a[x]=a[x]||{},o);t[last]=v};
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const nextDay=s=>{const [y,m,d]=s.split('-').map(Number);return iso(new Date(y,m-1,d+1))};
+const fmtDate=s=>{if(!s)return'';const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})};
+const uid=()=>'d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+/* ============ STATE ============ */
+const blank=()=>({v:1,date:iso(new Date()),prices:{small:'500',medium:'700',large:'1000',jumbo:'1500'},
+  leftoverYesterday:{},produced:{},staff:{},gifts:{},house:{},distributors:[],cashNotes:'',debts:{},history:[],tab:0});
+function normalize(x){
+  const s=Object.assign(blank(),x||{});
+  s.prices=Object.assign(blank().prices,s.prices||{});
+  ['leftoverYesterday','produced','staff','gifts','house','debts'].forEach(k=>{s[k]=s[k]||{}});
+  s.distributors=(s.distributors||[]).map(d=>Object.assign(newDist(''),d,{qty:d.qty||{}}));
+  s.history=(s.history||[]).map(h=>Object.assign({},h,{
+    prices:h.prices||blank().prices,leftoverYesterday:h.leftoverYesterday||{},produced:h.produced||{},
+    staff:h.staff||{},gifts:h.gifts||{},house:h.house||{},cashNotes:h.cashNotes||'',
+    distributors:(h.distributors||[]).map(d=>Object.assign(newDist(''),d,{qty:d.qty||{}}))}));
+  return s;
+}
+function load(){try{return normalize(JSON.parse(localStorage.getItem(KEY)))}catch(e){return normalize(null)}}
+let S=load();
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));
+    $('#saved').textContent='Saved ✓ '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }catch(e){toast('⚠️ Phone storage is full or blocked')}
+}
+function newDist(name,debt){return{id:uid(),name:name||'',prevDebt:debt?String(debt):'',prevTouched:false,qty:{},cash:'',transfer:'',oldPaid:'',notes:''}}
+const DAYKEYS=['date','prices','leftoverYesterday','produced','staff','gifts','house','distributors','cashNotes'];
+const dayOf=s=>JSON.parse(JSON.stringify(DAYKEYS.reduce((a,k)=>(a[k]=s[k],a),{})));
+const debtFor=name=>{const k=(name||'').trim().toLowerCase();return k&&S.debts[k]?S.debts[k].amount:0};
+function knownNames(){
+  const m={};Object.values(S.debts).forEach(x=>m[x.name.toLowerCase()]=x.name);
+  S.history.forEach(h=>h.distributors.forEach(x=>{const nm=(x.name||'').trim();if(nm)m[nm.toLowerCase()]=nm}));
+  return Object.values(m).sort();
+}
+
+/* ============ CALCULATIONS ============ */
+function compute(d){
+  const sum=o=>SIZES.reduce((a,s)=>a+n(o[s]),0), sumc=o=>SIZES.reduce((a,s)=>a+o[s],0);
+  const c={avail:{},sold:{},outflow:{},leftover:{}};
+  SIZES.forEach(s=>{
+    c.sold[s]=d.distributors.reduce((a,x)=>a+n(x.qty[s]),0);
+    c.avail[s]=n(d.leftoverYesterday[s])+n(d.produced[s]);
+    c.outflow[s]=c.sold[s]+n(d.staff[s])+n(d.gifts[s])+n(d.house[s]);
+    c.leftover[s]=c.avail[s]-c.outflow[s];
+  });
+  c.t={left:sum(d.leftoverYesterday),prod:sum(d.produced),staff:sum(d.staff),gifts:sum(d.gifts),house:sum(d.house),
+    avail:sumc(c.avail),sold:sumc(c.sold),outflow:sumc(c.outflow),leftover:sumc(c.leftover)};
+  c.dist=d.distributors.map(x=>{
+    const value=SIZES.reduce((a,s)=>a+n(x.qty[s])*n(d.prices[s]),0);
+    const unpaid=value-n(x.cash)-n(x.transfer);
+    return{value,unpaid,qtyTotal:SIZES.reduce((a,s)=>a+n(x.qty[s]),0),prev:n(x.prevDebt),oldPaid:n(x.oldPaid),
+      cash:n(x.cash),transfer:n(x.transfer),newDebt:n(x.prevDebt)-n(x.oldPaid)+unpaid};
+  });
+  const add=k=>c.dist.reduce((a,r)=>a+r[k],0);
+  c.revenue=add('value');c.cash=add('cash');c.transfer=add('transfer');c.oldPaid=add('oldPaid');
+  c.salesColl=c.cash+c.transfer;c.grand=c.cash+c.transfer+c.oldPaid;c.debtTotal=add('newDebt');
+  return c;
+}
+
+/* ============ REPORT TEXT (WHATSAPP) ============ */
+function reportText(d){
+  const c=compute(d),L=[];
+  const q=o=>SIZES.map(s=>LABEL[s]+' '+n(o[s])).join(' | ');
+  L.push('🍞 *BAKERY DAILY REPORT*','📅 '+fmtDate(d.date),'');
+  L.push('🍞 *PRODUCTION*','Produced: '+q(d.produced)+' = '+c.t.prod,
+    'Leftover as at Yesterday: '+q(d.leftoverYesterday)+' = '+c.t.left,'Everything in Total: '+c.t.avail,'');
+  L.push('📦 *DISTRIBUTORS*');
+  d.distributors.forEach((x,i)=>{const r=c.dist[i];
+    L.push('',(i+1)+'. *'+((x.name||'').trim()||'Distributor '+(i+1))+'*','Carried: '+q(x.qty)+' = '+r.qtyTotal,
+      'Total Value: '+money(r.value),'Cash: '+money(r.cash)+' | Transfer: '+money(r.transfer),
+      'Outstanding Today: '+money(r.unpaid));
+    if((x.notes||'').trim())L.push('Notes: '+x.notes.trim());
+  });
+  if(!d.distributors.length)L.push('(none)');
+  L.push('','👥 *OTHERS*','Staff: '+q(d.staff)+' = '+c.t.staff,'Gift: '+q(d.gifts)+' = '+c.t.gifts,'House: '+q(d.house)+' = '+c.t.house,'');
+  L.push('📊 *SALES SUMMARY*','Everything in Total: '+c.t.outflow,'Total Sold: '+c.t.sold,
+    "Leftover from Today's Sale: "+SIZES.map(s=>LABEL[s]+' '+c.leftover[s]).join(' | ')+' = '+c.t.leftover,'');
+  L.push('💵 *CASH DROPPED*: '+money(c.cash));
+  if((d.cashNotes||'').trim())L.push(d.cashNotes.trim());
+  L.push('','🏦 *TRANSFERS*: '+money(c.transfer));
+  if(c.oldPaid)L.push('Old debts collected: '+money(c.oldPaid));
+  L.push('','💰 *TOTAL CASH + TRANSFERS*: '+money(c.grand),'');
+  L.push('📝 *OUTSTANDING PAYMENTS*');
+  d.distributors.forEach((x,i)=>{const r=c.dist[i];
+    L.push('• '+((x.name||'').trim()||'Distributor '+(i+1))+': Previous '+money(r.prev)+' − Paid '+money(r.oldPaid)+' + Today '+money(r.unpaid)+' = *'+money(r.newDebt)+'*')});
+  L.push('*Total Outstanding: '+money(c.debtTotal)+'*');
+  return L.join('\n');
+}
+
+/* ============ REPORT HTML (PDF) ============ */
+function reportHTML(d){
+  const c=compute(d);
+  const T=(h,rows,foot)=>{const all=foot?rows.concat([foot]):rows;
+    return `<table style="width:100%;border-collapse:collapse;margin:4px 0 10px"><tr>${h.map((x,i)=>`<th style="background:#6a2c58;color:#fff;padding:5px 6px;font-size:10px;text-align:${i?'right':'left'}">${x}</th>`).join('')}</tr>${all.map((r,k)=>{const f=foot&&k===rows.length;
+    return `<tr>${r.map((x,i)=>`<td style="padding:4px 6px;font-size:10px;border-bottom:1px solid #e5d3df;text-align:${i?'right':'left'};${f?'font-weight:bold;background:#f3e8ef':''}">${x}</td>`).join('')}</tr>`}).join('')}</table>`};
+  const H=t=>`<div style="color:#491f3e;font-weight:bold;font-size:12px;border-bottom:2px solid #8e4585;margin-top:8px;padding-bottom:2px">${t}</div>`;
+  let h=`<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1018;width:100%">
+  <div style="background:#491f3e;color:#fff;padding:12px 14px;border-radius:6px"><div style="font-size:18px;font-weight:bold">🍞 Bakery Ledger — Daily Report</div><div style="font-size:11px;margin-top:2px">${esc(fmtDate(d.date))}</div></div>`;
+  h+=H('1. Inventory')+T(['Size','Price','Yesterday','Produced','Available','Sold','Staff','Gift','House','Leftover'],
+    SIZES.map(s=>[LABEL[s],money(n(d.prices[s])),n(d.leftoverYesterday[s]),n(d.produced[s]),c.avail[s],c.sold[s],n(d.staff[s]),n(d.gifts[s]),n(d.house[s]),c.leftover[s]]),
+    ['Total','',c.t.left,c.t.prod,c.t.avail,c.t.sold,c.t.staff,c.t.gifts,c.t.house,c.t.leftover]);
+  h+=H('2. Distributor Deliveries');
+  if(d.distributors.length){
+    h+=T(['Distributor','Small','Medium','Large','Jumbo','Value','Cash','Transfer','Unpaid'],
+      d.distributors.map((x,i)=>{const r=c.dist[i];return[esc((x.name||'').trim()||'Distributor '+(i+1)),...SIZES.map(s=>n(x.qty[s])),money(r.value),money(r.cash),money(r.transfer),money(r.unpaid)]}),
+      ['Total','','','','',money(c.revenue),money(c.cash),money(c.transfer),money(c.revenue-c.salesColl)]);
+    const notes=d.distributors.filter(x=>(x.notes||'').trim());
+    if(notes.length)h+=`<div style="font-size:10px;margin-bottom:6px">${notes.map(x=>`<b>${esc(x.name)}:</b> ${esc(x.notes)}`).join('<br>')}</div>`;
+  }else h+='<div style="font-size:10px;padding:4px">No distributors recorded.</div>';
+  h+=H('3. Financial Reconciliation')+T(['Item','Amount'],[
+    ['Total Sales Value',money(c.revenue)],['Cash Dropped',money(c.cash)],['Bank Transfers',money(c.transfer)],
+    ["Today's Sales Collections",money(c.salesColl)],['Old Debt Collections',money(c.oldPaid)]],['Grand Total Collections',money(c.grand)]);
+  if((d.cashNotes||'').trim())h+=`<div style="font-size:10px;margin-bottom:6px"><b>Cash details:</b> ${esc(d.cashNotes)}</div>`;
+  h+=H('4. Accumulated Debts');
+  h+=d.distributors.length?T(['Distributor','Previous','Old Debt Paid',"Today's Unpaid",'New Outstanding'],
+    d.distributors.map((x,i)=>{const r=c.dist[i];return[esc((x.name||'').trim()||'Distributor '+(i+1)),money(r.prev),money(r.oldPaid),money(r.unpaid),money(r.newDebt)]}),
+    ['Total','','','',money(c.debtTotal)]):'<div style="font-size:10px;padding:4px">None.</div>';
+  return h+'</div>';
+}
+async function makePDF(html,filename){
+  if(!window.html2pdf){toast('PDF tool not loaded. Check your internet and refresh.');return}
+  toast('Preparing PDF…');
+  try{
+    await html2pdf().set({margin:[8,8,8,8],filename,image:{type:'jpeg',quality:.95},
+      html2canvas:{scale:2,useCORS:true,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','legacy'],avoid:'tr'}}).from(html,'string').save();
+    toast('PDF ready ✓');
+  }catch(e){toast('PDF failed: '+e.message)}
+}
+
+/* ============ UI BUILDERS ============ */
+const grid=(path,out)=>`<div class="g4">${SIZES.map(s=>`<label class="cell"><span>${LABEL[s]}</span>${out
+  ?`<b data-o="${path}.${s}">0</b>`
+  :`<input class="inp" type="number" inputmode="numeric" min="0" data-bind="${path}.${s}" placeholder="0">`}</label>`).join('')}</div>`;
+const blk=(label,path,out,tot)=>`<div class="lbl mt">${label}</div>${grid(path,out)}<div class="tot">Total: <b data-o="t.${tot}">0</b></div>`;
+function buildProduction(){
+  $('#tab0').innerHTML=`<div id="warn" class="warn hidden"></div>
+  <details class="card"><summary>⚙️ Bread prices (₦ each) — tap to set</summary>
+    <div class="g4 mt">${SIZES.map(s=>`<label class="cell"><span>${LABEL[s]} ₦</span><input class="inp" type="number" inputmode="decimal" min="0" data-bind="prices.${s}"></label>`).join('')}</div></details>
+  <div class="card"><h2>☀️ Morning Stock</h2>
+    ${blk("Yesterday's Leftover <small>(auto from last closed day — you can edit)</small>",'leftoverYesterday',false,'left')}
+    ${blk('Produced Today','produced',false,'prod')}
+    ${blk('Total Available Stock','avail',true,'avail')}</div>
+  <div class="card"><h2>🎁 Staff, Gifts &amp; Household</h2>
+    ${blk('Staff Bread','staff',false,'staff')}${blk('Gifts','gifts',false,'gifts')}${blk('Household Consumption','house',false,'house')}</div>
+  <div class="card"><h2>🧮 End-of-Day Stock</h2>
+    ${blk('Total Sold (all distributors)','sold',true,'sold')}
+    ${blk('Everything in Total (Sold + Staff + Gifts + House)','outflow',true,'outflow')}
+    ${blk("Today's Leftover",'leftover',true,'leftover')}</div>`;
+}
+function distCard(x,i){
+  return `<div class="card dcard" data-id="${x.id}">
+  <div class="flex items-start gap-2"><div style="flex:1"><label class="lbl">Distributor ${i+1} — name</label>
+    <input class="inp" list="names" data-f="name" autocomplete="off" placeholder="Type name" value="${esc(x.name)}"></div>
+    <button class="xbtn" data-act="rmDist" aria-label="Remove distributor">✕</button></div>
+  <div class="mt"><label class="lbl">Previous Accumulated Debt (₦)</label>
+    <input class="inp" type="number" inputmode="decimal" data-f="prevDebt" placeholder="0" value="${esc(x.prevDebt)}">
+    <div class="hint" data-bf></div></div>
+  <div class="lbl mt">Bread taken</div>
+  <div class="g4">${SIZES.map(s=>`<label class="cell"><span>${LABEL[s]}</span><input class="inp" type="number" inputmode="numeric" min="0" data-f="qty.${s}" placeholder="0" value="${esc(x.qty[s])}"></label>`).join('')}</div>
+  <div class="row"><span>Bread taken (total)</span><b data-do="qtyTotal" data-nm="1">0</b></div>
+  <div class="row"><span>Total value</span><b data-do="value">₦0</b></div>
+  <div class="mt"><label class="lbl">Cash Paid Today (₦)</label><input class="inp" type="number" inputmode="decimal" data-f="cash" placeholder="0" value="${esc(x.cash)}"></div>
+  <div class="mt"><label class="lbl">Bank Transfer Paid Today (₦)</label><input class="inp" type="number" inputmode="decimal" data-f="transfer" placeholder="0" value="${esc(x.transfer)}"></div>
+  <div class="mt"><label class="lbl">Old Debt Paid Off (₦)</label><input class="inp" type="number" inputmode="decimal" data-f="oldPaid" placeholder="0" value="${esc(x.oldPaid)}"></div>
+  <div class="mt"><label class="lbl">Notes / Sub-collections</label><textarea class="inp" data-f="notes" placeholder="e.g. Sir K 13,600, Rukky 7,200">${esc(x.notes)}</textarea></div>
+  <div class="row mt"><span>Today's Unpaid Balance</span><b data-do="unpaid">₦0</b></div>
+  <div class="row big"><span>New Total Outstanding Debt</span><b data-do="newDebt">₦0</b></div></div>`;
+}
+function setBF(card,d){
+  const found=!d.prevTouched&&debtFor(d.name);
+  card.querySelector('[data-bf]').textContent=found?'✅ Found '+d.name.trim()+' in your records — debt brought forward':'';
+}
+function renderDist(){
+  $('#distList').innerHTML=S.distributors.map(distCard).join('')||'<p class="hint" style="text-align:center;padding:12px">No distributors yet. Tap “＋ Add Distributor”.</p>';
+  $$('.dcard').forEach(card=>setBF(card,S.distributors.find(d=>d.id===card.dataset.id)));
+  const used=S.distributors.map(d=>d.name.trim().toLowerCase());
+  const names=knownNames();
+  $('#names').innerHTML=names.map(x=>`<option value="${esc(x)}">`).join('');
+  $('#chips').innerHTML=names.filter(x=>!used.includes(x.toLowerCase())).map(x=>`<button class="chip" data-act="chip" data-name="${esc(x)}">＋ ${esc(x)}</button>`).join('');
+}
+function renderHistory(){
+  const debts=Object.values(S.debts).sort((a,b)=>b.amount-a.amount);
+  const tot=debts.reduce((a,x)=>a+x.amount,0);
+  let h=`<div class="card"><h2>📝 Outstanding Debts Now</h2>${debts.length
+    ?debts.map(x=>`<div class="row"><span>${esc(x.name)}</span><b>${money(x.amount)}</b></div>`).join('')+`<div class="row big"><span>Total</span><b>${money(tot)}</b></div>`
+    :'<p class="hint">No debts carried forward.</p>'}</div>`;
+  const hs=S.history.slice().sort((a,b)=>a.date<b.date?1:-1);
+  h+=`<div class="card"><h2>🗂️ Closed Days (${hs.length})</h2>`+(hs.length?hs.map(x=>{const c=compute(x);
+    return `<div class="hrow"><div><b>${esc(fmtDate(x.date))}</b><div class="hint">Sold ${c.t.sold} • Collected ${money(c.grand)} • Owed ${money(c.debtTotal)}</div></div>
+    <div class="flex gap-2"><button class="sm" data-act="hCopy" data-date="${x.date}">Copy</button><button class="sm" data-act="hPdf" data-date="${x.date}">PDF</button><button class="sm red" data-act="hDel" data-date="${x.date}">🗑</button></div></div>`}).join('')
+    :'<p class="hint">Nothing here yet. Tap “Close Day” at the end of the day.</p>')+'</div>';
+  $('#histBox').innerHTML=h;
+}
+function fillBound(){$$('[data-bind]').forEach(el=>{const v=get(S,el.dataset.bind);el.value=v==null?'':v})}
+function refresh(){
+  const c=compute(S);
+  $$('[data-o]').forEach(el=>{const v=get(c,el.dataset.o)||0;el.textContent=el.dataset.m?money(v):v;el.classList.toggle('neg',v<0)});
+  $$('.dcard').forEach(card=>{
+    const i=S.distributors.findIndex(x=>x.id===card.dataset.id),r=c.dist[i];if(!r)return;
+    card.querySelectorAll('[data-do]').forEach(el=>{const v=r[el.dataset.do];el.textContent=el.dataset.nm?v:money(v);el.classList.toggle('neg',v<0)});
+  });
+  const short=SIZES.filter(s=>c.leftover[s]<0).map(s=>LABEL[s]+' ('+c.leftover[s]+')');
+  const w=$('#warn');w.classList.toggle('hidden',!short.length);
+  if(short.length)w.textContent='⚠️ More bread went out than was available: '+short.join(', ')+'. Check yesterday\'s leftover or production.';
+  $('#report').textContent=reportText(S);
+}
+function renderAll(){fillBound();renderDist();renderHistory();refresh();showTab(S.tab||0)}
+function showTab(i){
+  S.tab=i;$$('.tab').forEach((el,k)=>el.classList.toggle('hidden',k!==i));
+  $$('.nb').forEach((b,k)=>b.classList.toggle('on',k===i));
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+  window.scrollTo(0,0);
+}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),3200)}
+function copyText(t){
+  let ok=false;
+  try{const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove()}catch(e){}
+  if(!ok&&navigator.clipboard)navigator.clipboard.writeText(t).catch(()=>{});
+  return ok;
+}
+
+/* ============ ACTIONS ============ */
+function addDist(name){
+  S.distributors.push(newDist(name,debtFor(name)));save();renderDist();refresh();
+  const cards=$$('.dcard'),last=cards[cards.length-1];
+  if(last){last.scrollIntoView({behavior:'smooth',block:'start'});if(!name)setTimeout(()=>last.querySelector('[data-f="name"]').focus(),350)}
+}
+function closeDay(){
+  const c=compute(S);
+  if(c.t.leftover<0&&!confirm('Some bread counts are negative (more went out than was available). Close the day anyway?'))return;
+  if(!confirm('Close '+fmtDate(S.date)+'?\n\nThis saves the day to History, moves today\'s leftover bread to tomorrow, and carries forward unpaid debts.'))return;
+  S.history=S.history.filter(h=>h.date!==S.date);
+  S.history.push(dayOf(S));
+  c.dist.forEach((r,i)=>{
+    const nm=(S.distributors[i].name||'').trim();if(!nm)return;
+    const k=nm.toLowerCase();
+    if(Math.abs(r.newDebt)>0.009)S.debts[k]={name:nm,amount:r.newDebt};else delete S.debts[k];
+  });
+  S.leftoverYesterday={};SIZES.forEach(s=>S.leftoverYesterday[s]=String(Math.max(0,c.leftover[s])));
+  S.produced={};S.staff={};S.gifts={};S.house={};S.cashNotes='';
+  S.distributors=Object.values(S.debts).map(x=>newDist(x.name,x.amount));
+  S.date=nextDay(S.date);S.tab=0;
+  save();renderAll();toast('Day closed ✓ Ready for '+fmtDate(S.date));
+}
+function backup(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bakery-ledger-backup-'+S.date+'.json';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  toast('Backup saved to your downloads ✓');
+}
+function restore(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      const o=JSON.parse(fr.result);
+      if(!o||typeof o!=='object'||!Array.isArray(o.history)||!o.prices)throw new Error('This is not a Bakery Ledger backup file');
+      if(!confirm('Restore this backup? It will REPLACE all data currently on this device.'))return;
+      S=normalize(o);save();renderAll();toast('Data restored ✓');
+    }catch(e){toast('Could not restore: '+e.message)}
+  };
+  fr.readAsText(file);
+}
+
+/* ============ EVENTS ============ */
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.bind){set(S,t.dataset.bind,t.value);save();refresh();return}
+  const card=t.closest&&t.closest('.dcard');
+  if(card&&t.dataset.f){
+    const d=S.distributors.find(x=>x.id===card.dataset.id);if(!d)return;
+    set(d,t.dataset.f,t.value);
+    if(t.dataset.f==='name'&&!d.prevTouched){
+      const a=debtFor(t.value);d.prevDebt=a?String(a):'';
+      card.querySelector('[data-f="prevDebt"]').value=d.prevDebt;
+    }
+    if(t.dataset.f==='prevDebt')d.prevTouched=true;
+    setBF(card,d);save();refresh();
+  }
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act;
+  if(a==='tab')showTab(+b.dataset.i);
+  else if(a==='addDist')addDist('');
+  else if(a==='chip')addDist(b.dataset.name);
+  else if(a==='rmDist'){
+    const card=b.closest('.dcard'),i=S.distributors.findIndex(x=>x.id===card.dataset.id),d=S.distributors[i];
+    if(confirm('Remove '+((d.name||'').trim()||'this distributor')+' from today\'s list?')){S.distributors.splice(i,1);save();renderDist();refresh()}
+  }
+  else if(a==='close')closeDay();
+  else if(a==='waCopy'){const t=reportText(S);copyText(t);window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank');toast('Copied ✓ If WhatsApp opens empty, just paste.')}
+  else if(a==='copyOnly'){copyText(reportText(S));toast('Report copied ✓')}
+  else if(a==='pdfToday')makePDF(reportHTML(S),'Bakery-Report-'+S.date+'.pdf');
+  else if(a==='pdfAll'){
+    if(!S.history.length){toast('No closed days yet');return}
+    const hs=S.history.slice().sort((x,y)=>x.date<y.date?-1:1);
+    makePDF(hs.map((h,i)=>`<div style="${i<hs.length-1?'page-break-after:always;':''}">${reportHTML(h)}</div>`).join(''),'Bakery-History-Archive.pdf');
+  }
+  else if(a==='backup')backup();
+  else if(a==='restore')$('#file').click();
+  else if(a==='hCopy'){const h=S.history.find(x=>x.date===b.dataset.date);if(h){copyText(reportText(h));toast('Report copied ✓')}}
+  else if(a==='hPdf'){const h=S.history.find(x=>x.date===b.dataset.date);if(h)makePDF(reportHTML(h),'Bakery-Report-'+h.date+'.pdf')}
+  else if(a==='hDel'){if(confirm('Delete the report for '+fmtDate(b.dataset.date)+'? This cannot be undone.')){S.history=S.history.filter(x=>x.date!==b.dataset.date);save();renderHistory();renderDist()}}
+});
+$('#file').addEventListener('change',e=>{if(e.target.files[0])restore(e.target.files[0]);e.target.value=''});
+
+/* ============ START ============ */
+buildProduction();
+renderAll();
+</script>
+</body>
+</html>
