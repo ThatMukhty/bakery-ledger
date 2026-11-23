@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#491f3e">
+<meta name="theme-color" content="#6a2c58">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bakery Ledger">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Bakery Ledger</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -55,6 +61,20 @@ details summary{font-weight:800;color:var(--p1);cursor:pointer;min-height:36px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:var(--p3);color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;z-index:60;opacity:0;pointer-events:none;transition:.25s;max-width:90%;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 pre.rep{white-space:pre-wrap;word-break:break-word;background:#fdfafc;border:2px solid #e3d0dd;border-radius:12px;padding:12px;font-size:.88rem;max-height:420px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace}
+/* price grid */
+.ptable{display:grid;grid-template-columns:64px repeat(3,minmax(0,1fr));gap:6px;align-items:center}
+.ph{font-size:.72rem;font-weight:700;color:var(--p3);text-align:center}
+.pl{font-size:.85rem;font-weight:800;color:var(--p3)}
+.pin{padding:6px 4px;font-size:.95rem;text-align:center;min-width:0}
+/* distributor price tier buttons */
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tier{min-height:50px;border-radius:12px;border:2px solid var(--p1);background:#fff;color:var(--p1);font-weight:800}
+.tier.on{background:var(--p1);color:#fff}
+/* install bar */
+.instbar{display:flex;align-items:center;gap:8px;background:#f3e8ef;color:var(--p3);padding:8px 12px;font-size:.85rem;font-weight:700;border-bottom:1px solid #d9c3d3}
+.instbar span{flex:1}
+.instbar.hidden{display:none}
+.instbar .x{min-width:40px;min-height:40px;font-weight:800;color:#7a6574;background:transparent}
 </style>
 </head>
 <body>
@@ -64,6 +84,11 @@ pre.rep{white-space:pre-wrap;word-break:break-word;background:#fdfafc;border:2px
     <input type="date" class="inp datein" data-bind="date" aria-label="Report date">
   </div>
 </header>
+<div id="installBar" class="instbar hidden">
+  <span>📲 Install Bakery Ledger on this device</span>
+  <button id="installBtn" class="sm">Install App</button>
+  <button id="installClose" class="x" aria-label="Dismiss">✕</button>
+</div>
 
 <main class="wrap">
   <!-- TAB 1: PRODUCTION -->
@@ -127,6 +152,13 @@ pre.rep{white-space:pre-wrap;word-break:break-word;background:#fdfafc;border:2px
       <button class="btn alt" data-act="restore">📂 Restore Data from File</button>
       <input type="file" id="file" accept=".json,application/json" class="hidden">
     </div>
+    <details class="card">
+      <summary>📲 How to add to Home Screen</summary>
+      <p class="hint mt"><b>Android (Chrome):</b> tap the ⋮ menu, then <b>Install app</b> or <b>Add to Home screen</b>.</p>
+      <p class="hint mt"><b>iPhone (Safari):</b> tap the Share button, then <b>Add to Home Screen</b>.</p>
+      <p class="hint mt"><b>Chromebook / computer (Chrome):</b> click the install icon at the right of the address bar, or ⋮ menu → <b>Install Bakery Ledger</b>.</p>
+      <p class="hint mt">This only works when you open the app from its web link (https). It will not work if the file is opened straight from phone storage.</p>
+    </details>
     <div id="histBox"></div>
     <div class="card">
       <button class="btn" data-act="close">✅ Close Day &amp; Start Next Day</button>
@@ -159,15 +191,27 @@ const fmtDate=s=>{if(!s)return'';const [y,m,d]=s.split('-').map(Number);return n
 const uid=()=>'d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
 /* ============ STATE ============ */
-const blank=()=>({v:1,date:iso(new Date()),prices:{small:'500',medium:'700',large:'1000',jumbo:'1500'},
-  leftoverYesterday:{},produced:{},staff:{},gifts:{},house:{},distributors:[],cashNotes:'',debts:{},history:[],tab:0});
+const blank=()=>({v:2,date:iso(new Date()),
+  prices:{small:{p1:'500',p2:'',p3:''},medium:{p1:'700',p2:'',p3:''},large:{p1:'1000',p2:'',p3:''},jumbo:{p1:'1500',p2:'',p3:''}},
+  tiers:{},leftoverYesterday:{},produced:{},staff:{},gifts:{},house:{},distributors:[],cashNotes:'',debts:{},history:[],tab:0});
+function migratePrices(p){
+  const base=blank().prices,out={};
+  SIZES.forEach(s=>{
+    const v=p&&p[s];
+    if(v&&typeof v==='object')out[s]=Object.assign({},base[s],v);
+    else if(v!==undefined&&v!==null)out[s]={p1:String(v),p2:'',p3:''};
+    else out[s]=Object.assign({},base[s]);
+  });
+  return out;
+}
 function normalize(x){
   const s=Object.assign(blank(),x||{});
-  s.prices=Object.assign(blank().prices,s.prices||{});
+  s.prices=migratePrices(s.prices);
+  s.tiers=s.tiers||{};
   ['leftoverYesterday','produced','staff','gifts','house','debts'].forEach(k=>{s[k]=s[k]||{}});
   s.distributors=(s.distributors||[]).map(d=>Object.assign(newDist(''),d,{qty:d.qty||{}}));
   s.history=(s.history||[]).map(h=>Object.assign({},h,{
-    prices:h.prices||blank().prices,leftoverYesterday:h.leftoverYesterday||{},produced:h.produced||{},
+    prices:migratePrices(h.prices),leftoverYesterday:h.leftoverYesterday||{},produced:h.produced||{},
     staff:h.staff||{},gifts:h.gifts||{},house:h.house||{},cashNotes:h.cashNotes||'',
     distributors:(h.distributors||[]).map(d=>Object.assign(newDist(''),d,{qty:d.qty||{}}))}));
   return s;
@@ -179,7 +223,7 @@ function save(){
     $('#saved').textContent='Saved ✓ '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }catch(e){toast('⚠️ Phone storage is full or blocked')}
 }
-function newDist(name,debt){return{id:uid(),name:name||'',prevDebt:debt?String(debt):'',prevTouched:false,qty:{},cash:'',transfer:'',oldPaid:'',notes:''}}
+function newDist(name,debt){return{id:uid(),name:name||'',prevDebt:debt?String(debt):'',prevTouched:false,tier:'p1',qty:{},cash:'',transfer:'',oldPaid:'',notes:''}}
 const DAYKEYS=['date','prices','leftoverYesterday','produced','staff','gifts','house','distributors','cashNotes'];
 const dayOf=s=>JSON.parse(JSON.stringify(DAYKEYS.reduce((a,k)=>(a[k]=s[k],a),{})));
 const debtFor=name=>{const k=(name||'').trim().toLowerCase();return k&&S.debts[k]?S.debts[k].amount:0};
@@ -190,6 +234,7 @@ function knownNames(){
 }
 
 /* ============ CALCULATIONS ============ */
+const priceOf=(d,x,s)=>n(((d.prices||{})[s]||{})[x.tier||'p1']);
 function compute(d){
   const sum=o=>SIZES.reduce((a,s)=>a+n(o[s]),0), sumc=o=>SIZES.reduce((a,s)=>a+o[s],0);
   const c={avail:{},sold:{},outflow:{},leftover:{}};
@@ -202,7 +247,7 @@ function compute(d){
   c.t={left:sum(d.leftoverYesterday),prod:sum(d.produced),staff:sum(d.staff),gifts:sum(d.gifts),house:sum(d.house),
     avail:sumc(c.avail),sold:sumc(c.sold),outflow:sumc(c.outflow),leftover:sumc(c.leftover)};
   c.dist=d.distributors.map(x=>{
-    const value=SIZES.reduce((a,s)=>a+n(x.qty[s])*n(d.prices[s]),0);
+    const value=SIZES.reduce((a,s)=>a+n(x.qty[s])*priceOf(d,x,s),0);
     const unpaid=value-n(x.cash)-n(x.transfer);
     return{value,unpaid,qtyTotal:SIZES.reduce((a,s)=>a+n(x.qty[s]),0),prev:n(x.prevDebt),oldPaid:n(x.oldPaid),
       cash:n(x.cash),transfer:n(x.transfer),newDebt:n(x.prevDebt)-n(x.oldPaid)+unpaid};
@@ -223,7 +268,7 @@ function reportText(d){
   L.push('📦 *DISTRIBUTORS*');
   d.distributors.forEach((x,i)=>{const r=c.dist[i];
     L.push('',(i+1)+'. *'+((x.name||'').trim()||'Distributor '+(i+1))+'*','Carried: '+q(x.qty)+' = '+r.qtyTotal,
-      'Total Value: '+money(r.value),'Cash: '+money(r.cash)+' | Transfer: '+money(r.transfer),
+      'Total Value: '+money(r.value)+' (Price '+(x.tier||'p1').slice(1)+')','Cash: '+money(r.cash)+' | Transfer: '+money(r.transfer),
       'Outstanding Today: '+money(r.unpaid));
     if((x.notes||'').trim())L.push('Notes: '+x.notes.trim());
   });
@@ -252,13 +297,13 @@ function reportHTML(d){
   const H=t=>`<div style="color:#491f3e;font-weight:bold;font-size:12px;border-bottom:2px solid #8e4585;margin-top:8px;padding-bottom:2px">${t}</div>`;
   let h=`<div style="font-family:Arial,Helvetica,sans-serif;color:#1c1018;width:100%">
   <div style="background:#491f3e;color:#fff;padding:12px 14px;border-radius:6px"><div style="font-size:18px;font-weight:bold">🍞 Bakery Ledger — Daily Report</div><div style="font-size:11px;margin-top:2px">${esc(fmtDate(d.date))}</div></div>`;
-  h+=H('1. Inventory')+T(['Size','Price','Yesterday','Produced','Available','Sold','Staff','Gift','House','Leftover'],
-    SIZES.map(s=>[LABEL[s],money(n(d.prices[s])),n(d.leftoverYesterday[s]),n(d.produced[s]),c.avail[s],c.sold[s],n(d.staff[s]),n(d.gifts[s]),n(d.house[s]),c.leftover[s]]),
+  h+=H('1. Inventory')+T(['Size','Prices P1/P2/P3','Yesterday','Produced','Available','Sold','Staff','Gift','House','Leftover'],
+    SIZES.map(s=>[LABEL[s],['p1','p2','p3'].map(t=>n((d.prices[s]||{})[t]).toLocaleString('en-NG')).join(' / '),n(d.leftoverYesterday[s]),n(d.produced[s]),c.avail[s],c.sold[s],n(d.staff[s]),n(d.gifts[s]),n(d.house[s]),c.leftover[s]]),
     ['Total','',c.t.left,c.t.prod,c.t.avail,c.t.sold,c.t.staff,c.t.gifts,c.t.house,c.t.leftover]);
   h+=H('2. Distributor Deliveries');
   if(d.distributors.length){
     h+=T(['Distributor','Small','Medium','Large','Jumbo','Value','Cash','Transfer','Unpaid'],
-      d.distributors.map((x,i)=>{const r=c.dist[i];return[esc((x.name||'').trim()||'Distributor '+(i+1)),...SIZES.map(s=>n(x.qty[s])),money(r.value),money(r.cash),money(r.transfer),money(r.unpaid)]}),
+      d.distributors.map((x,i)=>{const r=c.dist[i];return[esc((x.name||'').trim()||'Distributor '+(i+1))+' <span style="font-size:8px;color:#8e4585">(P'+(x.tier||'p1').slice(1)+')</span>',...SIZES.map(s=>n(x.qty[s])),money(r.value),money(r.cash),money(r.transfer),money(r.unpaid)]}),
       ['Total','','','','',money(c.revenue),money(c.cash),money(c.transfer),money(c.revenue-c.salesColl)]);
     const notes=d.distributors.filter(x=>(x.notes||'').trim());
     if(notes.length)h+=`<div style="font-size:10px;margin-bottom:6px">${notes.map(x=>`<b>${esc(x.name)}:</b> ${esc(x.notes)}`).join('<br>')}</div>`;
@@ -292,7 +337,9 @@ const blk=(label,path,out,tot)=>`<div class="lbl mt">${label}</div>${grid(path,o
 function buildProduction(){
   $('#tab0').innerHTML=`<div id="warn" class="warn hidden"></div>
   <details class="card"><summary>⚙️ Bread prices (₦ each) — tap to set</summary>
-    <div class="g4 mt">${SIZES.map(s=>`<label class="cell"><span>${LABEL[s]} ₦</span><input class="inp" type="number" inputmode="decimal" min="0" data-bind="prices.${s}"></label>`).join('')}</div></details>
+    <div class="ptable mt"><div></div><div class="ph">Price 1</div><div class="ph">Price 2</div><div class="ph">Price 3</div>
+    ${SIZES.map(s=>`<div class="pl">${LABEL[s]}</div>${['p1','p2','p3'].map(t=>`<input class="inp pin" type="number" inputmode="decimal" min="0" placeholder="₦" data-bind="prices.${s}.${t}" aria-label="${LABEL[s]} Price ${t.slice(1)}">`).join('')}`).join('')}
+    </div></details>
   <div class="card"><h2>☀️ Morning Stock</h2>
     ${blk("Yesterday's Leftover <small>(auto from last closed day — you can edit)</small>",'leftoverYesterday',false,'left')}
     ${blk('Produced Today','produced',false,'prod')}
@@ -312,6 +359,9 @@ function distCard(x,i){
   <div class="mt"><label class="lbl">Previous Accumulated Debt (₦)</label>
     <input class="inp" type="number" inputmode="decimal" data-f="prevDebt" placeholder="0" value="${esc(x.prevDebt)}">
     <div class="hint" data-bf></div></div>
+  <div class="mt"><label class="lbl">Price tier for this distributor</label>
+    <div class="tiers">${['p1','p2','p3'].map(t=>`<button type="button" class="tier ${(x.tier||'p1')===t?'on':''}" data-act="tier" data-tier="${t}">Price ${t.slice(1)}</button>`).join('')}</div>
+    <div class="hint" data-tierhint></div></div>
   <div class="lbl mt">Bread taken</div>
   <div class="g4">${SIZES.map(s=>`<label class="cell"><span>${LABEL[s]}</span><input class="inp" type="number" inputmode="numeric" min="0" data-f="qty.${s}" placeholder="0" value="${esc(x.qty[s])}"></label>`).join('')}</div>
   <div class="row"><span>Bread taken (total)</span><b data-do="qtyTotal" data-nm="1">0</b></div>
@@ -354,7 +404,11 @@ function refresh(){
   $$('[data-o]').forEach(el=>{const v=get(c,el.dataset.o)||0;el.textContent=el.dataset.m?money(v):v;el.classList.toggle('neg',v<0)});
   $$('.dcard').forEach(card=>{
     const i=S.distributors.findIndex(x=>x.id===card.dataset.id),r=c.dist[i];if(!r)return;
+    const d=S.distributors[i],t=d.tier||'p1';
     card.querySelectorAll('[data-do]').forEach(el=>{const v=r[el.dataset.do];el.textContent=el.dataset.nm?v:money(v);el.classList.toggle('neg',v<0)});
+    const miss=SIZES.filter(s=>n(d.qty[s])>0&&!priceOf(S,d,s));
+    card.querySelector('[data-tierhint]').innerHTML=SIZES.map(s=>LABEL[s]+' '+money(priceOf(S,d,s))).join(' • ')
+      +(miss.length?'<br><b class="neg">⚠️ Price '+t.slice(1)+' is not set for: '+miss.map(s=>LABEL[s]).join(', ')+'</b>':'');
   });
   const short=SIZES.filter(s=>c.leftover[s]<0).map(s=>LABEL[s]+' ('+c.leftover[s]+')');
   const w=$('#warn');w.classList.toggle('hidden',!short.length);
@@ -378,7 +432,8 @@ function copyText(t){
 
 /* ============ ACTIONS ============ */
 function addDist(name){
-  S.distributors.push(newDist(name,debtFor(name)));save();renderDist();refresh();
+  const nd=newDist(name,debtFor(name));nd.tier=S.tiers[(name||'').trim().toLowerCase()]||'p1';S.distributors.push(nd);
+  save();renderDist();refresh();
   const cards=$$('.dcard'),last=cards[cards.length-1];
   if(last){last.scrollIntoView({behavior:'smooth',block:'start'});if(!name)setTimeout(()=>last.querySelector('[data-f="name"]').focus(),350)}
 }
@@ -388,6 +443,7 @@ function closeDay(){
   if(!confirm('Close '+fmtDate(S.date)+'?\n\nThis saves the day to History, moves today\'s leftover bread to tomorrow, and carries forward unpaid debts.'))return;
   S.history=S.history.filter(h=>h.date!==S.date);
   S.history.push(dayOf(S));
+  S.distributors.forEach(x=>{const k=(x.name||'').trim().toLowerCase();if(k)S.tiers[k]=x.tier||'p1'});
   c.dist.forEach((r,i)=>{
     const nm=(S.distributors[i].name||'').trim();if(!nm)return;
     const k=nm.toLowerCase();
@@ -395,7 +451,7 @@ function closeDay(){
   });
   S.leftoverYesterday={};SIZES.forEach(s=>S.leftoverYesterday[s]=String(Math.max(0,c.leftover[s])));
   S.produced={};S.staff={};S.gifts={};S.house={};S.cashNotes='';
-  S.distributors=Object.values(S.debts).map(x=>newDist(x.name,x.amount));
+  S.distributors=Object.values(S.debts).map(x=>{const nd=newDist(x.name,x.amount);nd.tier=S.tiers[x.name.toLowerCase()]||'p1';return nd});
   S.date=nextDay(S.date);S.tab=0;
   save();renderAll();toast('Day closed ✓ Ready for '+fmtDate(S.date));
 }
@@ -440,6 +496,10 @@ document.addEventListener('click',e=>{
   if(a==='tab')showTab(+b.dataset.i);
   else if(a==='addDist')addDist('');
   else if(a==='chip')addDist(b.dataset.name);
+  else if(a==='tier'){
+    const card=b.closest('.dcard'),d=S.distributors.find(x=>x.id===card.dataset.id);
+    if(d){d.tier=b.dataset.tier;card.querySelectorAll('.tier').forEach(t=>t.classList.toggle('on',t===b));save();refresh()}
+  }
   else if(a==='rmDist'){
     const card=b.closest('.dcard'),i=S.distributors.findIndex(x=>x.id===card.dataset.id),d=S.distributors[i];
     if(confirm('Remove '+((d.name||'').trim()||'this distributor')+' from today\'s list?')){S.distributors.splice(i,1);save();renderDist();refresh()}
@@ -464,6 +524,28 @@ $('#file').addEventListener('change',e=>{if(e.target.files[0])restore(e.target.f
 /* ============ START ============ */
 buildProduction();
 renderAll();
+
+/* ============ INSTALL / PWA ============ */
+let deferredPrompt=null;
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredPrompt=e;
+  let off=false;try{off=localStorage.getItem('bl.noInstall')}catch(x){}
+  if(!isStandalone()&&!off)$('#installBar').classList.remove('hidden');
+});
+$('#installBtn').addEventListener('click',async()=>{
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;
+  $('#installBar').classList.add('hidden');
+});
+$('#installClose').addEventListener('click',()=>{
+  $('#installBar').classList.add('hidden');
+  try{localStorage.setItem('bl.noInstall','1')}catch(e){}
+});
+window.addEventListener('appinstalled',()=>{$('#installBar').classList.add('hidden');toast('Installed ✓')});
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
 </script>
 </body>
 </html>
